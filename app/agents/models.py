@@ -715,6 +715,12 @@ class ModelManager:
             elif endpoint == "google":
                 logger.info("Using Google authentication flow only")
                 model = cls._initialize_google_model(model_config)
+            elif endpoint == "anthropic":
+                logger.info("Using Anthropic authentication flow only")
+                model = cls._initialize_anthropic_model(model_config)
+            elif endpoint == "openai":
+                logger.info("Using OpenAI authentication flow only")
+                model = cls._initialize_openai_model(model_config)
             else:
                 raise ValueError(f"Unsupported endpoint: {endpoint}")
                 
@@ -1210,6 +1216,127 @@ class ModelManager:
         except Exception as e:
             logger.error(f"Error checking Google credentials: {e}")
             raise ValueError(f"Error checking Google credentials: {e}")
+
+    @classmethod
+    def _initialize_anthropic_model(cls, model_config: Dict[str, Any]):
+        """
+        Initialize a direct Anthropic API model.
+
+        Args:
+            model_config: Model configuration
+
+        Returns:
+            DirectAnthropicModel: The initialized Anthropic model
+        """
+        from app.agents.wrappers.anthropic_direct import DirectAnthropicModel
+
+        # Force garbage collection before creating new model
+        gc.collect()
+
+        logger.info("Initializing Anthropic model with direct API")
+
+        # Check for API key
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "ANTHROPIC_API_KEY not found in environment. "
+                "Please set ANTHROPIC_API_KEY to use the Anthropic endpoint."
+            )
+
+        # Get model ID and parameters
+        model_id = model_config.get("model_id")
+        temperature = model_config.get("temperature", 0.3)
+        max_output_tokens = model_config.get("max_output_tokens", 4096)
+        thinking_enabled = model_config.get("supports_thinking", False)
+
+        # Apply environment variable overrides
+        settings = cls.get_model_settings(model_config)
+        if "temperature" in settings:
+            temperature = settings["temperature"]
+        if "max_output_tokens" in settings:
+            max_output_tokens = settings["max_output_tokens"]
+
+        # Check for thinking mode override from environment
+        thinking_mode_env = os.environ.get("ZIYA_THINKING_MODE")
+        if thinking_mode_env is not None:
+            thinking_enabled = thinking_mode_env.lower() in ("true", "1", "yes")
+
+        logger.info(
+            f"Initializing Anthropic model: {model_id} with kwargs: "
+            f"{{'temperature': {temperature}, 'max_output_tokens': {max_output_tokens}, "
+            f"'thinking_enabled': {thinking_enabled}}}"
+        )
+
+        # Create the model with direct API
+        model = DirectAnthropicModel(
+            model_name=model_id,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+            thinking_enabled=thinking_enabled
+        )
+
+        return model
+
+    @classmethod
+    def _initialize_openai_model(cls, model_config: Dict[str, Any]):
+        """
+        Initialize a direct OpenAI API model.
+
+        Args:
+            model_config: Model configuration
+
+        Returns:
+            DirectOpenAIModel: The initialized OpenAI model
+        """
+        from app.agents.wrappers.openai_direct import DirectOpenAIModel
+
+        # Force garbage collection before creating new model
+        gc.collect()
+
+        logger.info("Initializing OpenAI model with direct API")
+
+        # Check for API key
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "OPENAI_API_KEY not found in environment. "
+                "Please set OPENAI_API_KEY to use the OpenAI endpoint."
+            )
+
+        # Get model ID and parameters
+        model_id = model_config.get("model_id")
+        temperature = model_config.get("temperature", 0.7)
+        max_output_tokens = model_config.get("max_output_tokens", 4096)
+        top_p = model_config.get("top_p", 1.0)
+        frequency_penalty = model_config.get("frequency_penalty", 0.0)
+        presence_penalty = model_config.get("presence_penalty", 0.0)
+
+        # Apply environment variable overrides
+        settings = cls.get_model_settings(model_config)
+        if "temperature" in settings:
+            temperature = settings["temperature"]
+        if "max_output_tokens" in settings:
+            max_output_tokens = settings["max_output_tokens"]
+        if "top_p" in settings:
+            top_p = settings["top_p"]
+
+        logger.info(
+            f"Initializing OpenAI model: {model_id} with kwargs: "
+            f"{{'temperature': {temperature}, 'max_output_tokens': {max_output_tokens}, "
+            f"'top_p': {top_p}}}"
+        )
+
+        # Create the model with direct API
+        model = DirectOpenAIModel(
+            model_name=model_id,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+            top_p=top_p,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty
+        )
+
+        return model
 
     @classmethod
     def get_model_with_stop(cls, stop: Optional[List[str]] = None) -> BaseChatModel:

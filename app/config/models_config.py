@@ -10,7 +10,9 @@ import os
 DEFAULT_ENDPOINT = "bedrock"
 DEFAULT_MODELS = {
     "bedrock": "sonnet4.5",
-    "google": "gemini-pro"
+    "google": "gemini-pro",
+    "anthropic": "claude-sonnet-4",
+    "openai": "gpt-4o"
 }
 
 # Default regions for specific models
@@ -141,6 +143,56 @@ MODEL_FAMILIES = {
             "topP": 0.9,
             "maxTokens": 1000
         }
+    },
+    # Direct Anthropic API model families
+    "anthropic-claude": {
+        "supported_parameters": ["temperature", "top_k", "top_p", "max_tokens"],
+        "parameter_ranges": {
+            "temperature": {"min": 0.0, "max": 1.0, "default": 0.3},
+            "top_p": {"min": 0.0, "max": 1.0, "default": 0.9},
+            "top_k": {"min": 0, "max": 200, "default": 40},
+            "max_tokens": {"min": 1, "max": 8192, "default": 4096}
+        },
+        "supports_thinking": True,
+        "native_function_calling": True,
+        "token_limit": 200000
+    },
+    "anthropic-claude-opus": {
+        "parent": "anthropic-claude",
+        "supports_thinking": True,
+        "token_limit": 200000
+    },
+    "anthropic-claude-haiku": {
+        "parent": "anthropic-claude",
+        "supports_thinking": False,
+        "token_limit": 200000
+    },
+    # Direct OpenAI API model families
+    "openai-gpt4": {
+        "supported_parameters": ["temperature", "top_p", "max_tokens", "frequency_penalty", "presence_penalty"],
+        "parameter_ranges": {
+            "temperature": {"min": 0.0, "max": 2.0, "default": 0.7},
+            "top_p": {"min": 0.0, "max": 1.0, "default": 1.0},
+            "max_tokens": {"min": 1, "max": 16384, "default": 4096},
+            "frequency_penalty": {"min": -2.0, "max": 2.0, "default": 0.0},
+            "presence_penalty": {"min": -2.0, "max": 2.0, "default": 0.0}
+        },
+        "native_function_calling": True,
+        "token_limit": 128000
+    },
+    "openai-gpt4-mini": {
+        "parent": "openai-gpt4",
+        "token_limit": 128000,
+        "max_output_tokens": 16384
+    },
+    "openai-o1": {
+        "supported_parameters": ["max_tokens"],  # o1 models have limited parameters
+        "parameter_ranges": {
+            "max_tokens": {"min": 1, "max": 100000, "default": 4096}
+        },
+        "native_function_calling": True,
+        "supports_thinking": True,  # o1 has built-in reasoning
+        "token_limit": 200000
     }
 }
 
@@ -175,6 +227,33 @@ ENDPOINT_DEFAULTS = {
         "convert_system_message_to_human": True,
         "enforce_size_limit": True,
         "max_request_size_mb": 10
+    },
+    "anthropic": {
+        "token_limit": 200000,
+        "max_output_tokens": 8192,
+        "default_max_output_tokens": 4096,
+        "supported_parameters": ["temperature", "max_tokens", "top_p", "top_k"],
+        "parameter_ranges": {
+            "temperature": {"min": 0.0, "max": 1.0, "default": 0.3},
+            "top_p": {"min": 0.0, "max": 1.0, "default": 0.9},
+            "top_k": {"min": 0, "max": 200, "default": 40},
+            "max_tokens": {"min": 1, "max": 8192, "default": 4096}
+        },
+        "native_function_calling": True
+    },
+    "openai": {
+        "token_limit": 128000,
+        "max_output_tokens": 16384,
+        "default_max_output_tokens": 4096,
+        "supported_parameters": ["temperature", "max_tokens", "top_p", "frequency_penalty", "presence_penalty"],
+        "parameter_ranges": {
+            "temperature": {"min": 0.0, "max": 2.0, "default": 0.7},
+            "top_p": {"min": 0.0, "max": 1.0, "default": 1.0},
+            "max_tokens": {"min": 1, "max": 16384, "default": 4096},
+            "frequency_penalty": {"min": -2.0, "max": 2.0, "default": 0.0},
+            "presence_penalty": {"min": -2.0, "max": 2.0, "default": 0.0}
+        },
+        "native_function_calling": True
     }
 }
 
@@ -466,6 +545,141 @@ MODEL_CONFIGS = {
             "supports_function_calling": True,
             "native_function_calling": True,
             "thinking_level": "high"
+        },
+    },
+    # Direct Anthropic API models
+    "anthropic": {
+        "claude-sonnet-4": {
+            "model_id": "claude-sonnet-4-20250514",
+            "family": "anthropic-claude",
+            "token_limit": 200000,
+            "max_output_tokens": 8192,
+            "default_max_output_tokens": 4096,
+            "supports_thinking": True,
+            "native_function_calling": True
+        },
+        "claude-sonnet-4.5": {
+            "model_id": "claude-sonnet-4-5-20250929",
+            "family": "anthropic-claude",
+            "token_limit": 200000,
+            "max_output_tokens": 8192,
+            "default_max_output_tokens": 4096,
+            "supports_thinking": True,
+            "native_function_calling": True
+        },
+        "claude-opus-4": {
+            "model_id": "claude-opus-4-20250514",
+            "family": "anthropic-claude-opus",
+            "token_limit": 200000,
+            "max_output_tokens": 8192,
+            "default_max_output_tokens": 4096,
+            "supports_thinking": True,
+            "native_function_calling": True
+        },
+        "claude-haiku-3.5": {
+            "model_id": "claude-3-5-haiku-20241022",
+            "family": "anthropic-claude-haiku",
+            "token_limit": 200000,
+            "max_output_tokens": 8192,
+            "default_max_output_tokens": 4096,
+            "supports_thinking": False,
+            "native_function_calling": True
+        },
+        "claude-sonnet-3.5": {
+            "model_id": "claude-3-5-sonnet-20241022",
+            "family": "anthropic-claude",
+            "token_limit": 200000,
+            "max_output_tokens": 8192,
+            "default_max_output_tokens": 4096,
+            "supports_thinking": False,
+            "native_function_calling": True
+        },
+    },
+    # Direct OpenAI API models
+    "openai": {
+        "gpt-4o": {
+            "model_id": "gpt-4o",
+            "family": "openai-gpt4",
+            "token_limit": 128000,
+            "max_output_tokens": 16384,
+            "default_max_output_tokens": 4096,
+            "native_function_calling": True
+        },
+        "gpt-4o-mini": {
+            "model_id": "gpt-4o-mini",
+            "family": "openai-gpt4-mini",
+            "token_limit": 128000,
+            "max_output_tokens": 16384,
+            "default_max_output_tokens": 4096,
+            "native_function_calling": True
+        },
+        "gpt-4-turbo": {
+            "model_id": "gpt-4-turbo",
+            "family": "openai-gpt4",
+            "token_limit": 128000,
+            "max_output_tokens": 4096,
+            "default_max_output_tokens": 4096,
+            "native_function_calling": True
+        },
+        "gpt-4.1": {
+            "model_id": "gpt-4.1",
+            "family": "openai-gpt4",
+            "token_limit": 1047576,
+            "max_output_tokens": 32768,
+            "default_max_output_tokens": 4096,
+            "native_function_calling": True
+        },
+        "gpt-4.1-mini": {
+            "model_id": "gpt-4.1-mini",
+            "family": "openai-gpt4-mini",
+            "token_limit": 1047576,
+            "max_output_tokens": 32768,
+            "default_max_output_tokens": 4096,
+            "native_function_calling": True
+        },
+        "gpt-4.1-nano": {
+            "model_id": "gpt-4.1-nano",
+            "family": "openai-gpt4-mini",
+            "token_limit": 1047576,
+            "max_output_tokens": 32768,
+            "default_max_output_tokens": 4096,
+            "native_function_calling": True
+        },
+        "o1": {
+            "model_id": "o1",
+            "family": "openai-o1",
+            "token_limit": 200000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 4096,
+            "native_function_calling": True,
+            "supports_thinking": True
+        },
+        "o1-mini": {
+            "model_id": "o1-mini",
+            "family": "openai-o1",
+            "token_limit": 128000,
+            "max_output_tokens": 65536,
+            "default_max_output_tokens": 4096,
+            "native_function_calling": True,
+            "supports_thinking": True
+        },
+        "o1-pro": {
+            "model_id": "o1-pro",
+            "family": "openai-o1",
+            "token_limit": 200000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 4096,
+            "native_function_calling": True,
+            "supports_thinking": True
+        },
+        "o3-mini": {
+            "model_id": "o3-mini",
+            "family": "openai-o1",
+            "token_limit": 200000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 4096,
+            "native_function_calling": True,
+            "supports_thinking": True
         },
     }
 }

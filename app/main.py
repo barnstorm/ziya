@@ -55,7 +55,7 @@ def parse_arguments():
     available_models = get_available_models(config.DEFAULT_ENDPOINT)
     model_list = ", ".join(f"`{m}`" for m in available_models)
     
-    parser.add_argument("--endpoint", type=str, choices=["bedrock", "google"], default=config.DEFAULT_ENDPOINT,
+    parser.add_argument("--endpoint", type=str, choices=["bedrock", "google", "anthropic", "openai"], default=config.DEFAULT_ENDPOINT,
                         help=f"Model endpoint to use (default: {config.DEFAULT_ENDPOINT})")
     parser.add_argument("--model", type=str, default=None,
                         help=f"Model to use from selected endpoint (default: {default_model}). Available models: {model_list}")
