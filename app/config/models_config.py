@@ -10,7 +10,9 @@ import os
 DEFAULT_ENDPOINT = "bedrock"
 DEFAULT_MODELS = {
     "bedrock": "sonnet4.5",
-    "google": "gemini-3-pro"
+    "google": "gemini-3-pro",
+    "openai": "gpt-4o",
+    "anthropic": "claude-sonnet-4"
 }
 
 # Default regions for specific models
@@ -144,6 +146,44 @@ MODEL_FAMILIES = {
             "topP": 0.9,
             "maxTokens": 1000
         }
+    },
+    "openai-gpt": {
+        "supported_parameters": ["temperature", "top_p", "max_tokens"],
+        "parameter_ranges": {
+            "temperature": {"min": 0.0, "max": 2.0, "default": 1.0},
+            "top_p": {"min": 0.0, "max": 1.0, "default": 1.0},
+            "max_tokens": {"min": 1, "max": 16384, "default": 4096}
+        },
+        "token_limit": 128000,
+        "supports_vision": True,
+        "supports_function_calling": True,
+        "native_function_calling": True
+    },
+    "openai-o": {
+        "supported_parameters": ["max_tokens", "reasoning_effort"],
+        "parameter_ranges": {
+            "max_tokens": {"min": 1, "max": 100000, "default": 16384},
+            "reasoning_effort": {"default": "medium"}
+        },
+        "token_limit": 200000,
+        "supports_vision": True,
+        "supports_thinking": True,
+        "supports_function_calling": True,
+        "native_function_calling": True
+    },
+    "anthropic-claude": {
+        "supported_parameters": ["temperature", "top_p", "top_k", "max_tokens"],
+        "parameter_ranges": {
+            "temperature": {"min": 0.0, "max": 1.0, "default": 1.0},
+            "top_p": {"min": 0.0, "max": 1.0, "default": 0.999},
+            "top_k": {"min": 0, "max": 500, "default": 0},
+            "max_tokens": {"min": 1, "max": 64000, "default": 4096}
+        },
+        "token_limit": 200000,
+        "supports_vision": True,
+        "supports_thinking": True,
+        "supports_function_calling": True,
+        "native_function_calling": True
     }
 }
 
@@ -178,6 +218,29 @@ ENDPOINT_DEFAULTS = {
         "convert_system_message_to_human": True,
         "enforce_size_limit": True,
         "max_request_size_mb": 10
+    },
+    "openai": {
+        "token_limit": 128000,
+        "max_output_tokens": 16384,
+        "default_max_output_tokens": 4096,
+        "supported_parameters": ["temperature", "top_p", "max_tokens"],
+        "parameter_ranges": {
+            "temperature": {"min": 0.0, "max": 2.0, "default": 1.0},
+            "top_p": {"min": 0.0, "max": 1.0, "default": 1.0},
+            "max_tokens": {"min": 1, "max": 16384, "default": 4096}
+        }
+    },
+    "anthropic": {
+        "token_limit": 200000,
+        "max_output_tokens": 64000,
+        "default_max_output_tokens": 4096,
+        "supported_parameters": ["temperature", "top_p", "top_k", "max_tokens"],
+        "parameter_ranges": {
+            "temperature": {"min": 0.0, "max": 1.0, "default": 1.0},
+            "top_p": {"min": 0.0, "max": 1.0, "default": 0.999},
+            "top_k": {"min": 0, "max": 500, "default": 0},
+            "max_tokens": {"min": 1, "max": 64000, "default": 4096}
+        }
     }
 }
 
@@ -502,6 +565,139 @@ MODEL_CONFIGS = {
             "native_function_calling": True,
             "thinking_level": "medium"
         },
+    },
+    "openai": {
+        "gpt-4o": {
+            "model_id": "gpt-4o",
+            "token_limit": 128000,
+            "max_output_tokens": 16384,
+            "default_max_output_tokens": 4096,
+            "family": "openai-gpt",
+            "supports_vision": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "gpt-4o-mini": {
+            "model_id": "gpt-4o-mini",
+            "token_limit": 128000,
+            "max_output_tokens": 16384,
+            "default_max_output_tokens": 4096,
+            "family": "openai-gpt",
+            "supports_vision": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "gpt-4-turbo": {
+            "model_id": "gpt-4-turbo",
+            "token_limit": 128000,
+            "max_output_tokens": 4096,
+            "default_max_output_tokens": 4096,
+            "family": "openai-gpt",
+            "supports_vision": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "o1": {
+            "model_id": "o1",
+            "token_limit": 200000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 16384,
+            "family": "openai-o",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "o1-mini": {
+            "model_id": "o1-mini",
+            "token_limit": 128000,
+            "max_output_tokens": 65536,
+            "default_max_output_tokens": 16384,
+            "family": "openai-o",
+            "supports_vision": False,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "o3-mini": {
+            "model_id": "o3-mini",
+            "token_limit": 200000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 16384,
+            "family": "openai-o",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        }
+    },
+    "anthropic": {
+        "claude-sonnet-4": {
+            "model_id": "claude-sonnet-4-20250514",
+            "token_limit": 200000,
+            "max_output_tokens": 64000,
+            "default_max_output_tokens": 16384,
+            "family": "anthropic-claude",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "claude-sonnet-4.5": {
+            "model_id": "claude-sonnet-4-5-20250929",
+            "token_limit": 200000,
+            "max_output_tokens": 64000,
+            "default_max_output_tokens": 16384,
+            "family": "anthropic-claude",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "claude-opus-4": {
+            "model_id": "claude-opus-4-20250514",
+            "token_limit": 200000,
+            "max_output_tokens": 64000,
+            "default_max_output_tokens": 32000,
+            "family": "anthropic-claude",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "claude-opus-4.5": {
+            "model_id": "claude-opus-4-5-20251101",
+            "token_limit": 200000,
+            "max_output_tokens": 64000,
+            "default_max_output_tokens": 32000,
+            "family": "anthropic-claude",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "claude-haiku-3.5": {
+            "model_id": "claude-3-5-haiku-20241022",
+            "token_limit": 200000,
+            "max_output_tokens": 8192,
+            "default_max_output_tokens": 4096,
+            "family": "anthropic-claude",
+            "supports_vision": True,
+            "supports_thinking": False,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "claude-3.5-sonnet": {
+            "model_id": "claude-3-5-sonnet-20241022",
+            "token_limit": 200000,
+            "max_output_tokens": 8192,
+            "default_max_output_tokens": 4096,
+            "family": "anthropic-claude",
+            "supports_vision": True,
+            "supports_thinking": False,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        }
     }
 }
 
