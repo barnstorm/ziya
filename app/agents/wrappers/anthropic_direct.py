@@ -223,12 +223,32 @@ class DirectAnthropicModel:
         while True:
             logger.info(f"Calling Anthropic model {self.model_name} with history...")
             try:
+                # Get model limits and clamp max_tokens
+                from app.agents.models import ModelManager
+                model_config = None
+                try:
+                    # Find model config by model_id
+                    for name, cfg in ModelManager.MODEL_CONFIGS.get("anthropic", {}).items():
+                        if cfg.get("model_id") == self.model_name:
+                            model_config = cfg
+                            break
+                except Exception:
+                    pass
+
+                max_tokens = self.max_output_tokens
+                if model_config:
+                    model_max = model_config.get("max_output_tokens", 8192)
+                    if max_tokens > model_max:
+                        logger.warning(f"Clamping max_tokens from {max_tokens} to model max {model_max}")
+                        max_tokens = model_max
+
                 # Build request parameters
                 request_params = {
                     "model": self.model_name,
                     "messages": history,
-                    "max_tokens": self.max_output_tokens,
+                    "max_tokens": max_tokens,
                 }
+                logger.info(f"ANTHROPIC_REQUEST: model={self.model_name}, max_tokens={max_tokens}")
 
                 # Add system prompt if present
                 if system_prompt:
@@ -238,13 +258,15 @@ class DirectAnthropicModel:
                 if anthropic_tools:
                     request_params["tools"] = anthropic_tools
 
-                # Add optional parameters
+                # Add optional parameters (ensure proper types)
                 if self.temperature is not None:
-                    request_params["temperature"] = self.temperature
+                    request_params["temperature"] = float(self.temperature)
                 if self.top_p is not None:
-                    request_params["top_p"] = self.top_p
-                if self.top_k is not None and self.top_k > 0:
-                    request_params["top_k"] = self.top_k
+                    request_params["top_p"] = float(self.top_p)
+                if self.top_k is not None:
+                    top_k_val = int(self.top_k)
+                    if top_k_val > 0:
+                        request_params["top_k"] = top_k_val
 
                 # Use streaming
                 async with self.client.messages.stream(**request_params) as response:
@@ -282,6 +304,7 @@ class DirectAnthropicModel:
                     final_message = await response.get_final_message()
                     stop_reason = final_message.stop_reason
                     logger.info(f"Anthropic model stop_reason: {stop_reason}")
+                    logger.info(f"Anthropic ACTUAL model used: {final_message.model}")
 
             except Exception as e:
                 error_message = f"Anthropic API Error ({type(e).__name__}): {str(e)}"

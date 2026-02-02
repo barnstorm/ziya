@@ -11,8 +11,9 @@ DEFAULT_ENDPOINT = "bedrock"
 DEFAULT_MODELS = {
     "bedrock": "sonnet4.5",
     "google": "gemini-3-pro",
-    "openai": "gpt-4o",
-    "anthropic": "claude-sonnet-4"
+    "openai": "gpt-5.2",
+    "anthropic": "claude-sonnet-4",
+    "cliapi": "claude-code"
 }
 
 # Default regions for specific models
@@ -220,14 +221,14 @@ ENDPOINT_DEFAULTS = {
         "max_request_size_mb": 10
     },
     "openai": {
-        "token_limit": 128000,
-        "max_output_tokens": 16384,
-        "default_max_output_tokens": 4096,
+        "token_limit": 1000000,
+        "max_output_tokens": 32768,
+        "default_max_output_tokens": 16384,
         "supported_parameters": ["temperature", "top_p", "max_tokens"],
         "parameter_ranges": {
             "temperature": {"min": 0.0, "max": 2.0, "default": 1.0},
             "top_p": {"min": 0.0, "max": 1.0, "default": 1.0},
-            "max_tokens": {"min": 1, "max": 16384, "default": 4096}
+            "max_tokens": {"min": 1, "max": 32768, "default": 16384}
         }
     },
     "anthropic": {
@@ -567,6 +568,113 @@ MODEL_CONFIGS = {
         },
     },
     "openai": {
+        "gpt-5.2": {
+            "model_id": "gpt-5.2",
+            "token_limit": 1000000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 16384,
+            "family": "openai-gpt5",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "gpt-5.1": {
+            "model_id": "gpt-5.1",
+            "token_limit": 1000000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 16384,
+            "family": "openai-gpt5",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "gpt-5": {
+            "model_id": "gpt-5",
+            "token_limit": 1000000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 16384,
+            "family": "openai-gpt5",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "gpt-5-mini": {
+            "model_id": "gpt-5-mini",
+            "token_limit": 1000000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 16384,
+            "family": "openai-gpt5",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "gpt-5-nano": {
+            "model_id": "gpt-5-nano",
+            "token_limit": 1000000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 8192,
+            "family": "openai-gpt5",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "gpt-5.2-pro": {
+            "model_id": "gpt-5.2-pro",
+            "token_limit": 1000000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 32000,
+            "family": "openai-gpt5",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "gpt-5-pro": {
+            "model_id": "gpt-5-pro",
+            "token_limit": 1000000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 32000,
+            "family": "openai-gpt5",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "gpt-4.1": {
+            "model_id": "gpt-4.1",
+            "token_limit": 1000000,
+            "max_output_tokens": 32768,
+            "default_max_output_tokens": 16384,
+            "family": "openai-gpt",
+            "supports_vision": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "gpt-4.1-mini": {
+            "model_id": "gpt-4.1-mini",
+            "token_limit": 1000000,
+            "max_output_tokens": 32768,
+            "default_max_output_tokens": 16384,
+            "family": "openai-gpt",
+            "supports_vision": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "gpt-4.1-nano": {
+            "model_id": "gpt-4.1-nano",
+            "token_limit": 1000000,
+            "max_output_tokens": 32768,
+            "default_max_output_tokens": 8192,
+            "family": "openai-gpt",
+            "supports_vision": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
         "gpt-4o": {
             "model_id": "gpt-4o",
             "token_limit": 128000,
@@ -587,18 +695,8 @@ MODEL_CONFIGS = {
             "supports_function_calling": True,
             "native_function_calling": True
         },
-        "gpt-4-turbo": {
-            "model_id": "gpt-4-turbo",
-            "token_limit": 128000,
-            "max_output_tokens": 4096,
-            "default_max_output_tokens": 4096,
-            "family": "openai-gpt",
-            "supports_vision": True,
-            "supports_function_calling": True,
-            "native_function_calling": True
-        },
-        "o1": {
-            "model_id": "o1",
+        "o3": {
+            "model_id": "o3",
             "token_limit": 200000,
             "max_output_tokens": 100000,
             "default_max_output_tokens": 16384,
@@ -608,13 +706,13 @@ MODEL_CONFIGS = {
             "supports_function_calling": True,
             "native_function_calling": True
         },
-        "o1-mini": {
-            "model_id": "o1-mini",
-            "token_limit": 128000,
-            "max_output_tokens": 65536,
-            "default_max_output_tokens": 16384,
+        "o3-pro": {
+            "model_id": "o3-pro",
+            "token_limit": 200000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 32000,
             "family": "openai-o",
-            "supports_vision": False,
+            "supports_vision": True,
             "supports_thinking": True,
             "supports_function_calling": True,
             "native_function_calling": True
@@ -629,7 +727,40 @@ MODEL_CONFIGS = {
             "supports_thinking": True,
             "supports_function_calling": True,
             "native_function_calling": True
-        }
+        },
+        "o4-mini": {
+            "model_id": "o4-mini",
+            "token_limit": 200000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 16384,
+            "family": "openai-o",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "o1": {
+            "model_id": "o1",
+            "token_limit": 200000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 16384,
+            "family": "openai-o",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
+        "o1-pro": {
+            "model_id": "o1-pro",
+            "token_limit": 200000,
+            "max_output_tokens": 100000,
+            "default_max_output_tokens": 32000,
+            "family": "openai-o",
+            "supports_vision": True,
+            "supports_thinking": True,
+            "supports_function_calling": True,
+            "native_function_calling": True
+        },
     },
     "anthropic": {
         "claude-sonnet-4": {
@@ -697,6 +828,58 @@ MODEL_CONFIGS = {
             "supports_thinking": False,
             "supports_function_calling": True,
             "native_function_calling": True
+        }
+    },
+    "cliapi": {
+        "claude-code": {
+            "model_id": "claude-code",
+            "token_limit": 200000,
+            "max_output_tokens": 16384,
+            "default_max_output_tokens": 4096,
+            "family": "openai-gpt",
+            "supports_vision": False,
+            "supports_function_calling": False,
+            "native_function_calling": False
+        },
+        "claude-code-opus": {
+            "model_id": "claude-code-opus",
+            "token_limit": 200000,
+            "max_output_tokens": 32000,
+            "default_max_output_tokens": 8192,
+            "family": "openai-gpt",
+            "supports_vision": False,
+            "supports_function_calling": False,
+            "native_function_calling": False
+        },
+        "claude-code-sonnet": {
+            "model_id": "claude-code-sonnet",
+            "token_limit": 200000,
+            "max_output_tokens": 16384,
+            "default_max_output_tokens": 4096,
+            "family": "openai-gpt",
+            "supports_vision": False,
+            "supports_function_calling": False,
+            "native_function_calling": False
+        },
+        "amazon-q": {
+            "model_id": "amazon-q",
+            "token_limit": 128000,
+            "max_output_tokens": 8192,
+            "default_max_output_tokens": 4096,
+            "family": "openai-gpt",
+            "supports_vision": False,
+            "supports_function_calling": False,
+            "native_function_calling": False
+        },
+        "aider": {
+            "model_id": "aider",
+            "token_limit": 128000,
+            "max_output_tokens": 8192,
+            "default_max_output_tokens": 4096,
+            "family": "openai-gpt",
+            "supports_vision": False,
+            "supports_function_calling": False,
+            "native_function_calling": False
         }
     }
 }

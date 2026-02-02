@@ -19,7 +19,7 @@ def add_common_arguments(parser):
                         help='Only include specified paths (comma-separated)')
     
     # Model and endpoint configuration
-    parser.add_argument('--endpoint', type=str, choices=['bedrock', 'google', 'openai', 'anthropic'],
+    parser.add_argument('--endpoint', type=str, choices=['bedrock', 'google', 'openai', 'anthropic', 'cliapi'],
                         default=config.DEFAULT_ENDPOINT,
                         help=f'Model endpoint (default: {config.DEFAULT_ENDPOINT})')
     parser.add_argument('--model', '-m', type=str, default=None, 

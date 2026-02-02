@@ -18,6 +18,12 @@ import subprocess
 import warnings
 from typing import Optional
 
+# Load API keys from ~/.ziya/.env if it exists (before other imports that may need them)
+_ziya_env_path = os.path.expanduser("~/.ziya/.env")
+if os.path.exists(_ziya_env_path):
+    from dotenv import load_dotenv
+    load_dotenv(_ziya_env_path, override=False)  # Don't override existing env vars
+
 from app.utils.logging_utils import logger
 from app.utils.version_util import get_current_version, get_latest_version
 

@@ -39,13 +39,25 @@ class DirectOpenAIModel:
         if self.is_reasoning_model:
             logger.info(f"Reasoning model detected, reasoning_effort={reasoning_effort}")
 
-        # Create async client
-        self.client = AsyncOpenAI()
-        logger.info("Created OpenAI async client")
+        # Create async client with optional base_url override
+        import os
+        base_url = os.environ.get("OPENAI_BASE_URL") or os.environ.get("OPENAI_API_BASE")
+        if base_url:
+            self.client = AsyncOpenAI(base_url=base_url)
+            logger.info(f"Created OpenAI async client with base_url={base_url}")
+        else:
+            self.client = AsyncOpenAI()
+            logger.info("Created OpenAI async client")
 
     def _is_reasoning_model(self, model_name: str) -> bool:
-        """Check if this is an o-series reasoning model."""
-        return model_name.startswith("o1") or model_name.startswith("o3")
+        """Check if this is a reasoning model (o-series or GPT-5)."""
+        # o-series reasoning models
+        if model_name.startswith("o1") or model_name.startswith("o3") or model_name.startswith("o4"):
+            return True
+        # GPT-5 models are also reasoning models that don't support temperature
+        if model_name.startswith("gpt-5"):
+            return True
+        return False
 
     def _extract_text_from_mcp_result(self, result: Any) -> str:
         """Extracts the text content from a structured MCP tool result."""

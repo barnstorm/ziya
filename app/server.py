@@ -616,16 +616,20 @@ async def chat_endpoint(request: Request):
         logger.debug(f"🔍 CHAT_ENDPOINT: question='{question[:50]}...', messages={len(messages)}, files={len(files)}")
         
         # Check current model to determine routing
-        from app.agents.models import ModelManager
         current_model = ModelManager.get_model_alias()
-        logger.debug(f"🔍 CHAT_ENDPOINT: current_model={current_model}")
+        current_endpoint = os.environ.get("ZIYA_ENDPOINT", config.DEFAULT_ENDPOINT)
+        logger.debug(f"🔍 CHAT_ENDPOINT: current_model={current_model}, endpoint={current_endpoint}")
         is_bedrock_claude = current_model and ('claude' in current_model.lower() or 'sonnet' in current_model.lower() or 'opus' in current_model.lower() or 'haiku' in current_model.lower())
         is_bedrock_nova = current_model and 'nova' in current_model.lower()
         is_bedrock_deepseek = current_model and 'deepseek' in current_model.lower()
         is_bedrock_openai = current_model and 'openai' in current_model.lower()
         is_google_model = current_model and ('gemini' in current_model.lower() or 'google' in current_model.lower())
+        # Check for direct API endpoints (OpenAI, Anthropic, cliapi)
+        is_direct_openai = current_endpoint == 'openai'
+        is_direct_anthropic = current_endpoint == 'anthropic'
+        is_cliapi = current_endpoint == 'cliapi'
         # Check if direct streaming is enabled globally - use direct streaming by default for Bedrock models like 0.3.1
-        use_direct_streaming = is_bedrock_claude or is_bedrock_nova or is_bedrock_deepseek or is_bedrock_openai or is_google_model
+        use_direct_streaming = is_bedrock_claude or is_bedrock_nova or is_bedrock_deepseek or is_bedrock_openai or is_google_model or is_direct_openai or is_direct_anthropic or is_cliapi
         
         logger.debug(f"🔍 CHAT_ENDPOINT: Current model = {current_model}, is_bedrock_claude = {is_bedrock_claude}")
         
@@ -668,7 +672,6 @@ async def chat_endpoint(request: Request):
                     images = None
                     if len(msg) >= 3:
                         try:
-                            import json
                             images = json.loads(msg[2])
                         except (json.JSONDecodeError, TypeError):
                             logger.warning(f"Failed to parse images from message: {msg[2][:100] if len(msg[2]) > 100 else msg[2]}")
@@ -4076,45 +4079,115 @@ async def save_file(request: FileContentRequest):
         logger.error(f"Error in save_file: {e}")
         return {"error": str(e)}
 
+def _check_endpoint_available(endpoint: str) -> bool:
+    """Check if an endpoint has valid credentials configured."""
+    if endpoint == "openai":
+        return bool(os.environ.get("OPENAI_API_KEY"))
+    elif endpoint == "anthropic":
+        return bool(os.environ.get("ANTHROPIC_API_KEY"))
+    elif endpoint == "google":
+        return bool(os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"))
+    elif endpoint == "bedrock":
+        # Check for AWS credentials
+        has_profile = bool(os.environ.get("AWS_PROFILE"))
+        has_keys = bool(os.environ.get("AWS_ACCESS_KEY_ID") and os.environ.get("AWS_SECRET_ACCESS_KEY"))
+        has_default_creds = os.path.exists(os.path.expanduser("~/.aws/credentials"))
+        return has_profile or has_keys or has_default_creds
+    elif endpoint == "cliapi":
+        # cliapi is available if CLIAPI_BASE_URL is set or if it was the startup endpoint
+        return bool(os.environ.get("CLIAPI_BASE_URL") or os.environ.get("ZIYA_ENDPOINT") == "cliapi")
+    return False
+
+
 @app.get('/api/available-models')
 def get_available_models():
-    """Get list of available models for the current endpoint."""
-    endpoint = os.environ.get("ZIYA_ENDPOINT", "bedrock")
+    """Get list of available models from endpoints with valid credentials."""
+    current_endpoint = os.environ.get("ZIYA_ENDPOINT", "bedrock")
 
     try:
         models = []
-        for name, config in ModelManager.MODEL_CONFIGS[endpoint].items():
-            model_id = config.get("model_id", name)
-            
-            # For region-specific model IDs, use a simplified representation
-            if isinstance(model_id, dict):
-                # Use the first region's model ID as a representative
-                representative_id = next(iter(model_id.values()))
-                display_name = f"{name} ({representative_id})"
-                
-                # Add region information if available
-                if "region" in config:
-                    preferred_region = config["region"]
-                    display_name = f"{name} ({representative_id}, {preferred_region})"
-            else:
-                display_name = f"{name} ({model_id})"
-                
-            # Always include all models regardless of region
-            models.append({
-                "id": name,  # Use the alias as the ID for consistency
-                "name": name,
-                "alias": name,
-                "display_name": display_name,
-                "preferred_region": config.get("region", None)  # Include preferred region if available
-            })
-            
-        # Log the models being returned
-        logger.debug(f"Available models: {json.dumps(models)}")
+        # Filter to only endpoints with valid credentials
+        available_endpoints = [ep for ep in ModelManager.MODEL_CONFIGS.keys() if _check_endpoint_available(ep)]
+
+        # Ensure current endpoint is included if it has models configured
+        if current_endpoint not in available_endpoints and current_endpoint in ModelManager.MODEL_CONFIGS:
+            available_endpoints.insert(0, current_endpoint)
+
+        # Put current endpoint first
+        endpoints_order = [current_endpoint] + [ep for ep in available_endpoints if ep != current_endpoint]
+        # Remove duplicates while preserving order
+        endpoints_order = list(dict.fromkeys(endpoints_order))
+
+        for endpoint in endpoints_order:
+            if endpoint not in ModelManager.MODEL_CONFIGS:
+                continue
+            for name, model_config in ModelManager.MODEL_CONFIGS[endpoint].items():
+                model_id = model_config.get("model_id", name)
+
+                # For region-specific model IDs, use a simplified representation
+                if isinstance(model_id, dict):
+                    representative_id = next(iter(model_id.values()))
+                    display_name = f"[{endpoint}] {name} ({representative_id})"
+                else:
+                    display_name = f"[{endpoint}] {name}"
+
+                models.append({
+                    "id": name,
+                    "name": name,
+                    "alias": name,
+                    "display_name": display_name,
+                    "endpoint": endpoint,
+                    "is_current_endpoint": endpoint == current_endpoint,
+                    "preferred_region": model_config.get("region", None)
+                })
+
+        logger.debug(f"Available models: {len(models)} from {len(endpoints_order)} endpoints (checked: {available_endpoints})")
         return models
     except Exception as e:
         logger.error(f"Error getting available models: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.get('/api/all-models')
+def get_all_models():
+    """Get all models across all endpoints for cross-endpoint switching."""
+    current_endpoint = os.environ.get("ZIYA_ENDPOINT", "bedrock")
+    current_model = os.environ.get("ZIYA_MODEL")
+
+    result = {
+        "current_endpoint": current_endpoint,
+        "current_model": current_model,
+        "endpoints": {}
+    }
+
+    for endpoint, models in ModelManager.MODEL_CONFIGS.items():
+        endpoint_models = []
+        for name, model_config in models.items():
+            model_id = model_config.get("model_id", name)
+
+            # For region-specific model IDs, use a simplified representation
+            if isinstance(model_id, dict):
+                representative_id = next(iter(model_id.values()))
+                display_name = f"{name} ({representative_id})"
+            else:
+                display_name = f"{name} ({model_id})"
+
+            endpoint_models.append({
+                "id": name,
+                "name": name,
+                "display_name": display_name,
+                "supports_vision": model_config.get("supports_vision", False),
+                "supports_thinking": model_config.get("supports_thinking", False),
+                "token_limit": model_config.get("token_limit"),
+                "family": model_config.get("family")
+            })
+
+        result["endpoints"][endpoint] = {
+            "models": endpoint_models,
+            "is_current": endpoint == current_endpoint
+        }
+
+    return result
 
 
 if __name__ == "__main__":
@@ -5090,7 +5163,7 @@ async def set_model(request: SetModelRequest):
             return {"status": "success", "model": found_alias, "changed": False}
 
         # Check if we need to adjust the region based on the model
-        model_config = ModelManager.get_model_config(endpoint, found_alias)
+        model_config = ModelManager.get_model_config(found_endpoint, found_alias)
         model_id = model_config.get("model_id")
         
         # If the model has region-specific IDs, ensure we're using the right region
@@ -5136,7 +5209,7 @@ async def set_model(request: SetModelRequest):
                 raise model_init_error
 
             # Verify the model was actually changed by checking the model ID and updating global references
-            expected_model_id = ModelManager.MODEL_CONFIGS[endpoint][found_alias]['model_id']
+            expected_model_id = ModelManager.MODEL_CONFIGS[found_endpoint][found_alias]['model_id']
             actual_model_id = ModelManager.get_model_id(new_model)
             logger.info(f"Model ID verification - Expected: {expected_model_id}, Actual: {actual_model_id}")
             
@@ -5168,7 +5241,7 @@ async def set_model(request: SetModelRequest):
                 if endpoint == "google" and model_name:
                     model_config = ModelManager.get_model_config(endpoint, model_name)
                     uses_native_calling = model_config.get("native_function_calling", False)
-                    
+
                     if uses_native_calling:
                         logger.info(f"Model {model_name} uses native function calling, skipping XML agent creation")
                         # Store the model directly without wrapping in XML agent
@@ -5178,6 +5251,21 @@ async def set_model(request: SetModelRequest):
                         # Create XML agent for models that need it
                         agent = create_agent_chain(new_model)
                         agent_executor = create_agent_executor(agent)
+                elif endpoint == "anthropic":
+                    # Anthropic direct models use native function calling, skip XML agent
+                    logger.info(f"Anthropic model {model_name} uses native function calling, skipping XML agent creation")
+                    agent = None
+                    agent_executor = None
+                elif endpoint == "openai":
+                    # OpenAI direct models use native function calling, skip XML agent
+                    logger.info(f"OpenAI model {model_name} uses native function calling, skipping XML agent creation")
+                    agent = None
+                    agent_executor = None
+                elif endpoint == "cliapi":
+                    # cliapi models are proxied through Agent Gateway, skip XML agent
+                    logger.info(f"cliapi model {model_name}, skipping XML agent creation")
+                    agent = None
+                    agent_executor = None
                 else:
                     # For Bedrock and other models, create XML agent normally
                     agent = create_agent_chain(new_model)
@@ -5204,7 +5292,7 @@ async def set_model(request: SetModelRequest):
                 "status": "success",
                 "model": found_alias, 
                 "previous_model": old_state['model_id'],
-                "model_display_name": ModelManager.MODEL_CONFIGS[endpoint][found_alias].get("display_name", found_alias),
+                "model_display_name": ModelManager.MODEL_CONFIGS[found_endpoint][found_alias].get("display_name", found_alias),
                 "changed": True,
                 "message": "Model and routes successfully updated"
             }
@@ -5559,6 +5647,122 @@ async def test_cache_functionality():
     except Exception as e:
         logger.error(f"Error testing cache functionality: {str(e)}")
         return {"error": str(e)}
+
+
+class APIKeysRequest(BaseModel):
+    """Request model for setting API keys."""
+    model_config = {"extra": "allow"}
+    anthropic_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None
+    google_api_key: Optional[str] = None
+    cliapi_base_url: Optional[str] = None
+    persist: bool = False  # If True, save to ~/.ziya/.env
+
+
+def _get_ziya_env_path():
+    """Get path to Ziya's .env file."""
+    ziya_dir = os.path.expanduser("~/.ziya")
+    os.makedirs(ziya_dir, exist_ok=True)
+    return os.path.join(ziya_dir, ".env")
+
+
+def _update_env_file(key: str, value: str):
+    """Update or add a key in the .env file."""
+    env_path = _get_ziya_env_path()
+    lines = []
+
+    # Read existing content
+    if os.path.exists(env_path):
+        with open(env_path, 'r') as f:
+            lines = f.readlines()
+
+    # Update or add the key
+    key_found = False
+    new_lines = []
+    for line in lines:
+        if line.strip().startswith(f"{key}="):
+            new_lines.append(f"{key}={value}\n")
+            key_found = True
+        else:
+            new_lines.append(line)
+
+    if not key_found:
+        new_lines.append(f"{key}={value}\n")
+
+    # Write back
+    with open(env_path, 'w') as f:
+        f.writelines(new_lines)
+
+    # Set restrictive permissions (owner read/write only)
+    os.chmod(env_path, 0o600)
+
+
+@app.get('/api/settings/api-keys')
+def get_api_keys_status():
+    """Get status of configured API keys (not the actual keys)."""
+    env_path = _get_ziya_env_path()
+    return {
+        "anthropic": bool(os.environ.get("ANTHROPIC_API_KEY")),
+        "openai": bool(os.environ.get("OPENAI_API_KEY")),
+        "google": bool(os.environ.get("GOOGLE_API_KEY")),
+        "cliapi_base_url": os.environ.get("CLIAPI_BASE_URL", "http://localhost:8080/v1"),
+        "env_file": env_path,
+        "env_file_exists": os.path.exists(env_path),
+        "endpoints_available": {
+            "bedrock": True,  # Uses AWS credentials, not API key
+            "anthropic": bool(os.environ.get("ANTHROPIC_API_KEY")),
+            "openai": bool(os.environ.get("OPENAI_API_KEY")),
+            "google": bool(os.environ.get("GOOGLE_API_KEY")),
+            "cliapi": True  # Always available (uses local server)
+        }
+    }
+
+
+@app.post('/api/settings/api-keys')
+async def set_api_keys(keys: APIKeysRequest):
+    """Set API keys for various providers. Use persist=true to save to ~/.ziya/.env"""
+    updated = []
+    persisted = []
+
+    if keys.anthropic_api_key:
+        os.environ["ANTHROPIC_API_KEY"] = keys.anthropic_api_key
+        updated.append("anthropic")
+        if keys.persist:
+            _update_env_file("ANTHROPIC_API_KEY", keys.anthropic_api_key)
+            persisted.append("anthropic")
+        logger.info("Updated ANTHROPIC_API_KEY" + (" (persisted)" if keys.persist else ""))
+
+    if keys.openai_api_key:
+        os.environ["OPENAI_API_KEY"] = keys.openai_api_key
+        updated.append("openai")
+        if keys.persist:
+            _update_env_file("OPENAI_API_KEY", keys.openai_api_key)
+            persisted.append("openai")
+        logger.info("Updated OPENAI_API_KEY" + (" (persisted)" if keys.persist else ""))
+
+    if keys.google_api_key:
+        os.environ["GOOGLE_API_KEY"] = keys.google_api_key
+        updated.append("google")
+        if keys.persist:
+            _update_env_file("GOOGLE_API_KEY", keys.google_api_key)
+            persisted.append("google")
+        logger.info("Updated GOOGLE_API_KEY" + (" (persisted)" if keys.persist else ""))
+
+    if keys.cliapi_base_url:
+        os.environ["CLIAPI_BASE_URL"] = keys.cliapi_base_url
+        updated.append("cliapi_base_url")
+        if keys.persist:
+            _update_env_file("CLIAPI_BASE_URL", keys.cliapi_base_url)
+            persisted.append("cliapi_base_url")
+        logger.info(f"Updated CLIAPI_BASE_URL to {keys.cliapi_base_url}" + (" (persisted)" if keys.persist else ""))
+
+    return {
+        "status": "success",
+        "updated": updated,
+        "persisted": persisted if keys.persist else [],
+        "env_file": _get_ziya_env_path() if keys.persist else None,
+        "message": f"Updated {len(updated)} key(s)"
+    }
 
 
 @app.post('/api/model-settings')

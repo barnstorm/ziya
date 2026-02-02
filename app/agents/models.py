@@ -756,6 +756,9 @@ class ModelManager:
             elif endpoint == "anthropic":
                 logger.info("Using Anthropic authentication flow only")
                 model = cls._initialize_anthropic_model(model_config)
+            elif endpoint == "cliapi":
+                logger.info("Using cliapi (Agent Gateway) flow")
+                model = cls._initialize_cliapi_model(model_config)
             else:
                 raise ValueError(f"Unsupported endpoint: {endpoint}")
                 
@@ -1264,9 +1267,20 @@ class ModelManager:
         Check if OpenAI API key is available.
 
         Raises:
-            ValueError: If OPENAI_API_KEY is not set
+            ValueError: If OPENAI_API_KEY is not set (unless using custom base_url)
         """
         api_key = os.environ.get("OPENAI_API_KEY")
+        base_url = os.environ.get("OPENAI_BASE_URL") or os.environ.get("OPENAI_API_BASE")
+
+        # If using custom base URL (like cliapi), accept any API key including "unused"
+        if base_url:
+            if not api_key:
+                os.environ["OPENAI_API_KEY"] = "unused"
+                logger.info(f"Using custom OpenAI base URL: {base_url}, set dummy API key")
+            else:
+                logger.info(f"Using custom OpenAI base URL: {base_url}")
+            return
+
         if not api_key:
             logger.error("OpenAI API key not found")
             raise ValueError(
@@ -1342,6 +1356,56 @@ class ModelManager:
         return model
 
     @classmethod
+    def _initialize_cliapi_model(cls, model_config: Dict[str, Any]):
+        """
+        Initialize a cliapi (Agent Gateway) model.
+        Uses the OpenAI wrapper with a custom base_url pointing to local cliapi server.
+
+        Args:
+            model_config: Model configuration
+
+        Returns:
+            DirectOpenAIModel: The initialized model pointing to cliapi
+        """
+        from app.agents.wrappers.openai_direct import DirectOpenAIModel
+
+        gc.collect()
+
+        logger.info("Initializing cliapi model")
+
+        # Get cliapi base URL from environment or use default
+        base_url = os.environ.get("CLIAPI_BASE_URL", "http://localhost:8080/v1")
+        logger.info(f"Using cliapi base URL: {base_url}")
+
+        # Set the OpenAI base URL for the client
+        os.environ["OPENAI_BASE_URL"] = base_url
+        # Set a dummy API key if not present
+        if not os.environ.get("OPENAI_API_KEY"):
+            os.environ["OPENAI_API_KEY"] = "unused"
+
+        # Get model parameters
+        model_id = model_config.get("model_id")
+        temperature = model_config.get("temperature", 0.3)
+        max_output_tokens = model_config.get("max_output_tokens", 4096)
+
+        # Apply settings overrides
+        settings = cls.get_model_settings(model_config)
+        if "temperature" in settings:
+            temperature = settings["temperature"]
+        if "max_output_tokens" in settings:
+            max_output_tokens = settings["max_output_tokens"]
+
+        logger.info(f"Initializing cliapi model: {model_id} with kwargs: {{'temperature': {temperature}, 'max_output_tokens': {max_output_tokens}}}")
+
+        model = DirectOpenAIModel(
+            model_name=model_id,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens
+        )
+
+        return model
+
+    @classmethod
     def _check_anthropic_credentials(cls) -> None:
         """
         Check if Anthropic API key is available.
@@ -1402,6 +1466,12 @@ class ModelManager:
             top_p = settings["top_p"]
         if "top_k" in settings:
             top_k = settings["top_k"]
+
+        # Clamp max_output_tokens to model's maximum
+        model_max = model_config.get("max_output_tokens", 4096)
+        if max_output_tokens > model_max:
+            logger.warning(f"max_output_tokens {max_output_tokens} exceeds model max {model_max}, clamping")
+            max_output_tokens = model_max
 
         logger.info(f"Initializing Anthropic model: {model_id} with kwargs: {{'temperature': {temperature}, 'max_output_tokens': {max_output_tokens}}}")
 
