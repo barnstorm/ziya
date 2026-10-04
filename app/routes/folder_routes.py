@@ -238,7 +238,7 @@ async def get_file(request: FileRequest):
                 status_code=403,
                 content={"error": "Read of this path is not permitted."},
             )
-        with open(resolved_path, 'r') as f:
+        with open(resolved_path, 'r', encoding='utf-8') as f:
             content = f.read()
         return {"content": content}
     except (PermissionError, FileNotFoundError, IsADirectoryError, OSError) as e:
@@ -271,7 +271,7 @@ async def save_file(request: FileContentRequest):
         if not allowed:
             logger.warning(f"/save blocked by write policy: {resolved_path} ({reason})")
             return JSONResponse(status_code=403, content={"error": "Write to this path is not permitted by policy"})
-        with open(resolved_path, 'w') as f:
+        with open(resolved_path, 'w', encoding='utf-8', newline='') as f:
             f.write(request.content)
         return {"success": True}
     except (PermissionError, FileNotFoundError, IsADirectoryError, OSError) as e:

@@ -563,7 +563,9 @@ class FileWriteTool(BaseMCPTool):
                     start = idx + len(patch)
                 replaced = 1
 
-            resolved.write_text(updated, encoding="utf-8")
+            # read_text() gave universal newlines; keep the file's own endings.
+            from app.utils.diff_utils.file_ops.file_handlers import write_preserving_line_endings
+            write_preserving_line_endings(str(resolved), updated)
             label = (
                 f"replaced {replaced} of {count} occurrence(s)"
                 if count > 1 else
@@ -592,7 +594,9 @@ class FileWriteTool(BaseMCPTool):
             return {"error": True, "message": f"Cannot create directory: {exc}"}
 
         try:
-            resolved.write_text(content, encoding="utf-8")
+            # newline='': write the content as given, without \r\n on Windows.
+            with open(resolved, "w", encoding="utf-8", newline="") as f:
+                f.write(content)
         except Exception as exc:
             return {"error": True, "message": f"Write failed: {exc}"}
 
