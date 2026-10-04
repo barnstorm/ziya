@@ -299,8 +299,8 @@ def print_info(args):
         print(f"  MCP: {'Enabled' if args.mcp else 'Disabled'}")
         # Check for mcp-registry
         try:
-            result = subprocess.run(['which', 'mcp-registry'], capture_output=True, text=True)
-            mcp_registry_installed = result.returncode == 0
+            import shutil
+            mcp_registry_installed = shutil.which('mcp-registry') is not None
             print(f"  MCP Registry: {'Installed' if mcp_registry_installed else 'Not found'}")
         except Exception as e:
             logger.debug(f"Error checking for mcp-registry: {e}")
