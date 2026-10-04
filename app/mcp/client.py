@@ -18,6 +18,7 @@ import time
 
 from app.utils.logging_utils import logger
 from app.config.env_registry import ziya_env
+from app.utils.process_utils import resolve_command, resolve_executable
 
 # Upper bound on the unmatched-response buffer so a misbehaving server
 # (late responses, unknown ids) cannot grow it without limit.
@@ -500,7 +501,7 @@ class MCPClient:
             full_env = build_mcp_subprocess_env(process_env)
 
             self.process = await asyncio.create_subprocess_exec(
-                *final_popen_command,
+                *resolve_command(final_popen_command, full_env.get('PATH')),
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -606,7 +607,7 @@ class MCPClient:
                             try:
                                 result = await asyncio.to_thread(
                                     subprocess.run,
-                                    ['npm', 'config', 'get', 'registry'],
+                                    [resolve_executable('npm'), 'config', 'get', 'registry'],
                                     capture_output=True,
                                     text=True,
                                     timeout=2
@@ -715,7 +716,7 @@ class MCPClient:
                                 try:
                                     result = await asyncio.to_thread(
                                         subprocess.run,
-                                        ['npm', 'config', 'get', 'registry'],
+                                        [resolve_executable('npm'), 'config', 'get', 'registry'],
                                         capture_output=True,
                                         text=True,
                                         timeout=2
@@ -2055,7 +2056,7 @@ class MCPClient:
                 if self.process.stderr:
                     line = await self.process.stderr.readline()
                     if line:
-                        log_entry = f"STDERR: {line.decode().strip()}"
+                        log_entry = f"STDERR: {line.decode('utf-8', errors='replace').strip()}"
                         self.logs.append(log_entry)
                         # Keep only last 100 log entries
                         if len(self.logs) > 100:

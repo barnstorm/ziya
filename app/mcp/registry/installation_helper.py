@@ -4,11 +4,13 @@ Helper utilities for installing MCP servers from different sources.
 
 import subprocess
 import shutil
+import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
 from app.mcp.registry.interface import InstallationType
 from app.utils.logging_utils import logger
+from app.utils.process_utils import resolve_executable
 
 
 class InstallationHelper:
@@ -61,7 +63,7 @@ class InstallationHelper:
         """Install NPM package."""
         try:
             result = subprocess.run(
-                ['npm', 'install', package],
+                [resolve_executable('npm'), 'install', package],
                 cwd=str(install_dir),
                 capture_output=True,
                 text=True,
@@ -90,7 +92,9 @@ class InstallationHelper:
         """Install PyPI package."""
         try:
             result = subprocess.run(
-                ['pip', 'install', package],
+                # The pip of Ziya's interpreter; a bare `pip` may belong to
+                # another Python, or not be on PATH at all on Windows
+                [sys.executable, '-m', 'pip', 'install', package],
                 capture_output=True,
                 text=True,
                 timeout=300

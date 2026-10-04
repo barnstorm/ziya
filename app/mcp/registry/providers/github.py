@@ -5,6 +5,7 @@ GitHub-based MCP Registry Provider for public/community servers.
 import asyncio
 import json
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -20,6 +21,7 @@ from app.mcp.registry.command_policy import (
     validate_package_identifier, validate_run_command,
 )
 from app.utils.logging_utils import logger
+from app.utils.process_utils import resolve_executable
 
 
 class GitHubRegistryProvider(RegistryProvider):
@@ -224,7 +226,7 @@ class GitHubRegistryProvider(RegistryProvider):
                     npm_package, source=f"github:{service_id}",
                 )
                 result = await asyncio.to_thread(
-                    subprocess.run, ['npm', 'install', npm_package],
+                    subprocess.run, [resolve_executable('npm'), 'install', npm_package],
                     cwd=str(install_dir), capture_output=True, text=True)
                 if result.returncode != 0:
                     raise RuntimeError(f"npm install failed: {result.stderr}")
@@ -236,7 +238,7 @@ class GitHubRegistryProvider(RegistryProvider):
                     pip_package, source=f"github:{service_id}",
                 )
                 result = await asyncio.to_thread(
-                    subprocess.run, ['pip', 'install', pip_package],
+                    subprocess.run, [sys.executable, '-m', 'pip', 'install', pip_package],
                     capture_output=True, text=True)
                 if result.returncode != 0:
                     raise RuntimeError(f"pip install failed: {result.stderr}")
