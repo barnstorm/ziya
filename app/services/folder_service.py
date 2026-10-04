@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from app.utils.logging_utils import logger
 from app.utils.directory_util import get_ignored_patterns, MAX_SYMLINK_HOPS
+from app.utils.file_utils import external_key
 
 
 # Folder structure cache, keyed by absolute directory path
@@ -363,7 +364,7 @@ def add_external_path_to_cache(full_path: str) -> bool:
         with _cache_lock:
             if '[external]' not in _folder_cache[user_codebase_dir]['data']:
                 _folder_cache[user_codebase_dir]['data']['[external]'] = {'children': {}, 'token_count': 0}
-            path_parts = full_path.strip('/').split('/')
+            path_parts = full_path.replace(os.sep, '/').strip('/').split('/')
             current_level = _folder_cache[user_codebase_dir]['data']['[external]']['children']
             for part in path_parts[:-1]:
                 if part not in current_level:
@@ -377,7 +378,7 @@ def add_external_path_to_cache(full_path: str) -> bool:
             else:
                 current_level[filename] = {'token_count': token_count}
             logger.info(f"Added external path to cache: {full_path} ({token_count} tokens)")
-            _schedule_broadcast('file_added', f"[external]{full_path}", token_count)
+            _schedule_broadcast('file_added', external_key(full_path), token_count)
             return True
 
     except Exception as e:
@@ -495,9 +496,9 @@ def collect_leaf_file_keys(dir_path: str, is_inside_workspace: bool, user_codeba
                 return keys
             full = os.path.join(root, fname)
             if is_inside_workspace:
-                key = os.path.relpath(full, user_codebase_dir)
+                key = os.path.relpath(full, user_codebase_dir).replace(os.sep, '/')
             else:
-                key = "[external]" + full
+                key = external_key(full)
             keys.append(key)
     return keys
 
@@ -524,9 +525,9 @@ def collect_documentation_file_keys(dir_path: str, is_inside_workspace: bool, us
             if fname in doc_files:
                 full = os.path.join(root, fname)
                 if is_inside_workspace:
-                    key = os.path.relpath(full, user_codebase_dir)
+                    key = os.path.relpath(full, user_codebase_dir).replace(os.sep, '/')
                 else:
-                    key = "[external]" + full
+                    key = external_key(full)
                 keys.append(key)
     if keys:
         logger.info(f"Auto-context: found {len(keys)} documentation file(s) in {dir_path}")
