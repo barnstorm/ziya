@@ -71,6 +71,7 @@ import traceback
 from pathlib import Path
 import sys
 from app.utils.logging_utils import logger
+from app.utils.process_utils import configure_stdio
 from app.config.env_registry import ziya_env
 from app.utils.interruptible_input import interruptible_input
 from typing import List, Tuple 
@@ -4823,6 +4824,7 @@ Examples:
 
 def main():
     """CLI entry point."""
+    configure_stdio()
     parser = create_parser()
     
     # Save current terminal title and set ours (xterm title stack push/pop)
